@@ -2,6 +2,7 @@ package com.voicerewriter
 
 import android.content.Context
 import android.util.Log
+import android.view.inputmethod.InputMethodManager
 import com.whispercpp.whisper.WhisperContext
 import com.whispercpp.whisper.WhisperCpuConfig
 import kotlinx.coroutines.Dispatchers
@@ -45,7 +46,14 @@ object LocalWhisperStt {
         }
         val tLoaded = System.nanoTime()
         // transcribeData runs on whisper's own single-thread dispatcher internally.
-        val raw = whisper.transcribeData(samples, printTimestamp = false, prompt = biasPrompt?.ifBlank { null })
+        val language = resolveLanguage(context, settings.sttLanguage)
+        Log.i("LocalWhisperStt", "languageSetting=${settings.sttLanguage} resolvedLanguage=${language ?: "auto"}")
+        val raw = whisper.transcribeData(
+            samples,
+            printTimestamp = false,
+            prompt = biasPrompt?.ifBlank { null },
+            language = language,
+        )
         val tDone = System.nanoTime()
         Log.i(
             "LocalWhisperStt",
@@ -75,6 +83,23 @@ object LocalWhisperStt {
             loadedId = id
             Log.i("LocalWhisperStt", "warm model=$id load=${(System.nanoTime() - t0) / 1_000_000}ms")
         }
+    }
+
+    /**
+     * Resolve the language requested in Settings. "keyboard" is best-effort: Android exposes
+     * the current IME subtype, but some keyboards switch languages internally without updating
+     * that subtype. In that case fall back to Whisper auto-detection.
+     */
+    private fun resolveLanguage(context: Context, setting: String): String? {
+        if (setting in setOf("ru", "en", "de", "es")) return setting
+        if (setting != "keyboard") return null
+
+        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        val subtype = runCatching { imm?.currentInputMethodSubtype }.getOrNull() ?: return null
+        val tag = if (android.os.Build.VERSION.SDK_INT >= 24) subtype.languageTag else ""
+        val raw = tag.ifBlank { subtype.locale }
+        val lang = raw.substringBefore('-').substringBefore('_').lowercase()
+        return lang.takeIf { it in setOf("ru", "en", "de", "es") }
     }
 
     /** Strip whisper's bracketed non-speech markers (e.g. [BLANK_AUDIO], [Music]). */
