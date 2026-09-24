@@ -216,14 +216,13 @@ class RewriteActivity : ComponentActivity() {
 
     /** Voice path: hand the result to the accessibility service (auto-insert) and close. */
     private fun acceptVoice(result: String) {
-        // No toast on the clipboard fallback: users who skipped Accessibility chose the
-        // clipboard deliberately, so being told about it after every single dictation (and
-        // nudged to grant the permission again) is nagging, not information.
-        val enqueued = OpenWisprAccessibilityService.enqueueInsert(result)
-        if (!enqueued) setClipboard(result)
+        // Voice dictation must never modify the system clipboard implicitly. If Accessibility
+        // is unavailable or insertion fails, the result remains in History and can be copied
+        // explicitly from there.
+        OpenWisprAccessibilityService.enqueueInsert(result)
         LastDictation.set(this, result)
-        // Delivery is confirmed — inserted, or on the clipboard where the user can reach it —
-        // and the transcript is already in history. Only now is the recording settled, which
+        // The transcript is already in history, so it remains recoverable even if insertion
+        // fails. Only now is the recording settled, which
         // is what makes it eligible for retention pruning.
         pendingId?.let { id ->
             val ctx = applicationContext
