@@ -28,12 +28,11 @@ class AudioRecorder(private val context: Context) {
         private const val SPEECH_END_PROB = 0.35f
 
         /**
-         * Silence needed before auto-stop fires. Was 0.8s, which is shorter than an ordinary
-         * mid-sentence pause ("so... the thing is") and cut people off mid-thought - the main
-         * reason auto-stop felt broken on a phone. Tap is now the long-form gesture, so this
-         * leans patient; hold-to-talk covers the case where you want to end it instantly.
+         * Silence needed before auto-stop fires. Dictation is intentionally patient: ordinary thinking
+         * pauses must not end a take. A full minute of silence is treated as abandonment/end of
+         * dictation; the bubble can still be tapped to stop immediately.
          */
-        private const val HANGOVER_SAMPLES = (1.6 * SAMPLE_RATE).toInt()
+        private const val HANGOVER_SAMPLES = (60.0 * SAMPLE_RATE).toInt()
 
         /**
          * Speech that must accumulate before auto-stop can arm at all. Without this, one
