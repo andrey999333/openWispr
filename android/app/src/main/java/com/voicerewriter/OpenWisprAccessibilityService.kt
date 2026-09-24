@@ -235,8 +235,8 @@ class OpenWisprAccessibilityService : AccessibilityService() {
             // keyboard: insert at the cursor / replace the selection, without clipboard.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val im = accessibilityInputMethod ?: inputMethod
-                val connection = im.currentInputConnection
-                if (im.currentInputStarted && connection != null) {
+                val connection = im?.currentInputConnection
+                if (im?.currentInputStarted == true && connection != null) {
                     connection.commitText(text, 1, null)
                     Log.i(TAG, "inserted through accessibility InputConnection")
                     true
