@@ -70,7 +70,7 @@ object PendingAudio {
     private const val PREFS = "pending_audio"
 
     /** Retention default: generous, because the audio never leaves the device. */
-    const val DEFAULT_KEEP_DAYS = 30
+    const val DEFAULT_KEEP_DAYS = 1
 
     /** Hard ceiling regardless of the day window, so the store can't grow without bound. */
     private const val MAX_KEEP = 200
