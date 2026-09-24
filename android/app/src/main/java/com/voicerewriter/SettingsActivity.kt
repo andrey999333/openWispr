@@ -126,6 +126,7 @@ private fun SettingsScreen(repo: SettingsRepository, launch: (suspend () -> Unit
     var sttEndpoint by remember { mutableStateOf("") }
     var sttKey by remember { mutableStateOf("") }
     var sttModel by remember { mutableStateOf("") }
+    var sttLanguage by remember { mutableStateOf("auto") }
     var defaultMode by remember { mutableStateOf(Defaults.MODE_DICTATE) }
     var deterministicCleanup by remember { mutableStateOf(true) }
     var polishLevel by remember { mutableStateOf(PolishLevel.OFF) }
@@ -165,7 +166,7 @@ private fun SettingsScreen(repo: SettingsRepository, launch: (suspend () -> Unit
         val s = repo.get()
         provider = s.provider; model = s.model; customEndpoint = s.customEndpoint; apiKey = s.apiKey
         voice = s.voice; antiAI = s.antiAI; temperature = s.temperature.toFloat()
-        sttProvider = s.sttProvider; sttEndpoint = s.sttEndpoint; sttKey = s.sttKey; sttModel = s.sttModel
+        sttProvider = s.sttProvider; sttEndpoint = s.sttEndpoint; sttKey = s.sttKey; sttModel = s.sttModel; sttLanguage = s.sttLanguage
         defaultMode = s.defaultMode
         deterministicCleanup = s.deterministicCleanup; polishLevel = s.polishLevel
         vadAutoStop = s.vadAutoStop; bubbleOnlyOnFields = s.bubbleOnlyOnFields
@@ -217,7 +218,7 @@ private fun SettingsScreen(repo: SettingsRepository, launch: (suspend () -> Unit
         provider = provider, model = model.trim(), customEndpoint = customEndpoint.trim(),
         apiKey = apiKey.trim(), voice = voice, antiAI = antiAI, temperature = temperature.toDouble(),
         sttProvider = sttProvider, sttEndpoint = sttEndpoint.trim(), sttKey = sttKey.trim(),
-        sttModel = sttModel.trim(), defaultMode = defaultMode,
+        sttModel = sttModel.trim(), sttLanguage = sttLanguage, defaultMode = defaultMode,
         deterministicCleanup = deterministicCleanup, polishLevel = polishLevel,
         vadAutoStop = vadAutoStop, bubbleOnlyOnFields = bubbleOnlyOnFields,
         hasCompletedOnboarding = true,
@@ -399,6 +400,35 @@ private fun SettingsScreen(repo: SettingsRepository, launch: (suspend () -> Unit
                                 append(if (sttProvider == "groq") "Groq" else if (sttProvider == "openai") "OpenAI" else "your provider")
                                 append(" for transcription.")
                             }) { sttProvider = "local"; persist() }
+                        }
+                    }
+                    if (sttProvider == "local" && !OnDeviceStt.isParakeet(OnDeviceStt.resolveModel(sttModel))) {
+                        Divider()
+                        Padded {
+                            Label("Transcription language")
+                            Spacer(Modifier.height(8.dp))
+                            Segment(
+                                options = listOf(
+                                    "auto" to "Auto",
+                                    "keyboard" to "Keyboard",
+                                    "ru" to "RU",
+                                    "en" to "EN",
+                                    "de" to "DE",
+                                    "es" to "ES",
+                                ),
+                                selected = sttLanguage,
+                                onSelect = { sttLanguage = it; persist() },
+                            )
+                            Spacer(Modifier.height(7.dp))
+                            Text(
+                                when (sttLanguage) {
+                                    "keyboard" -> "Uses the current Android keyboard language when the keyboard reports it; otherwise falls back to Auto."
+                                    "auto" -> "Whisper detects the spoken language automatically."
+                                    else -> "Forces Whisper to transcribe in the selected language without translating."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                     Divider()
