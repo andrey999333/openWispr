@@ -38,6 +38,17 @@ jobs:
         working-directory: android
         run: ./gradlew :app:assembleDebug :app:testDebugUnitTest --no-daemon
 
+      # Keep a directly installable APK from every successful main/PR build. This uses the
+      # standard Android debug signing key generated on the runner, so no repository secrets
+      # or developer keystore are required. Intended for sideloading/testing, not Play Store.
+      - name: Upload installable debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwispr-android-debug-${{ github.sha }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
   # macOS was not built here until #52 sat for eleven days with a one-line compile error and a
   # green PR, because the only job in this file was the Android one. Half the codebase had no
   # signal at all: the app target was never compiled, and OpenWisprCore's 119 unit tests never
