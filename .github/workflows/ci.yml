@@ -33,6 +33,7 @@ jobs:
           mkdir -p app/libs
           curl -fSL --retry 3 -o app/libs/sherpa-onnx-static-link-onnxruntime-1.13.3.aar \
             https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.3/sherpa-onnx-static-link-onnxruntime-1.13.3.aar
+          echo "9f065fe6f2cab09fd48eaa580097293e077637ad53a5e89c5c58a36509386ac7  app/libs/sherpa-onnx-static-link-onnxruntime-1.13.3.aar" | sha256sum -c -
 
       - name: Assemble debug + run unit tests
         working-directory: android
