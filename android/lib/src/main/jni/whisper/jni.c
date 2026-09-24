@@ -163,7 +163,7 @@ Java_com_whispercpp_whisper_WhisperLib_00024Companion_freeContext(
 
 JNIEXPORT void JNICALL
 Java_com_whispercpp_whisper_WhisperLib_00024Companion_fullTranscribe(
-        JNIEnv *env, jobject thiz, jlong context_ptr, jint num_threads, jfloatArray audio_data, jstring prompt) {
+        JNIEnv *env, jobject thiz, jlong context_ptr, jint num_threads, jfloatArray audio_data, jstring prompt, jstring language) {
     UNUSED(thiz);
     struct whisper_context *context = (struct whisper_context *) context_ptr;
     jfloat *audio_data_arr = (*env)->GetFloatArrayElements(env, audio_data, NULL);
@@ -176,10 +176,19 @@ Java_com_whispercpp_whisper_WhisperLib_00024Companion_fullTranscribe(
     params.print_timestamps = false;
     params.print_special = false;
     params.translate = false;
-    // Auto-detect the spoken language for multilingual Whisper models.
-    // Keeping translate=false means Russian stays Russian, German stays German, etc.
-    // whisper.cpp treats a null language as automatic language detection.
-    params.language = NULL;
+    // Explicit language when requested; NULL lets whisper.cpp auto-detect.
+    // translate=false is critical: transcribe in the source language, never translate to English.
+    const char *language_chars = NULL;
+    if (language != NULL) {
+        language_chars = (*env)->GetStringUTFChars(env, language, NULL);
+        if (language_chars != NULL && language_chars[0] != '\0') {
+            params.language = language_chars;
+        } else {
+            params.language = NULL;
+        }
+    } else {
+        params.language = NULL;
+    }
     params.n_threads = num_threads;
     params.offset_ms = 0;
     params.no_context = true;
@@ -229,6 +238,9 @@ Java_com_whispercpp_whisper_WhisperLib_00024Companion_fullTranscribe(
     (*env)->ReleaseFloatArrayElements(env, audio_data, audio_data_arr, JNI_ABORT);
     if (prompt_chars != NULL) {
         (*env)->ReleaseStringUTFChars(env, prompt, prompt_chars);
+    }
+    if (language_chars != NULL) {
+        (*env)->ReleaseStringUTFChars(env, language, language_chars);
     }
 }
 
