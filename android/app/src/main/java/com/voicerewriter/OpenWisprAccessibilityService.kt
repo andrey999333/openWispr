@@ -1,6 +1,7 @@
 package com.voicerewriter
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.InputMethod
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
@@ -80,6 +81,7 @@ class OpenWisprAccessibilityService : AccessibilityService() {
     }
 
     private val main = Handler(Looper.getMainLooper())
+    private var accessibilityInputMethod: InputMethod? = null
     @Volatile private var pendingText: String? = null
 
     // Keep the editor that had focus before RewriteActivity covers the host app. On some
@@ -88,6 +90,10 @@ class OpenWisprAccessibilityService : AccessibilityService() {
     // The AccessibilityNodeInfo itself can still perform ACTION_SET_TEXT once refreshed.
     private var lastFocusedEditor: AccessibilityNodeInfo? = null
     private val retryDelays = longArrayOf(250, 500, 900, 1400, 2000)
+
+    override fun onCreateInputMethod(): InputMethod {
+        return InputMethod(this).also { accessibilityInputMethod = it }
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -223,15 +229,25 @@ class OpenWisprAccessibilityService : AccessibilityService() {
     /** Try once to insert into the host app's focused editable field. */
     private fun attemptInsert() {
         val text = pendingText ?: return
-        val node = findHostFocusedEditable() ?: return
         val ok = try {
-            // Auto-insert is deliberately clipboard-free. If ACTION_SET_TEXT is unsupported,
-            // leave the dictation in History instead of polluting the system clipboard.
-            insertAtCursor(node, text)
+            // Android 13+ exposes the editor's InputConnection directly to accessibility
+            // services that request FLAG_INPUT_METHOD_EDITOR. commitText behaves like a
+            // keyboard: insert at the cursor / replace the selection, without clipboard.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val im = accessibilityInputMethod ?: inputMethod
+                val connection = im.currentInputConnection
+                if (im.currentInputStarted && connection != null) {
+                    connection.commitText(text, 1, null)
+                    Log.i(TAG, "inserted through accessibility InputConnection")
+                    true
+                } else {
+                    insertViaAccessibilityNode(text)
+                }
+            } else {
+                insertViaAccessibilityNode(text)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "insert action failed", e); false
-        } finally {
-            @Suppress("DEPRECATION") node.recycle()
         }
         if (ok) {
             Log.i(TAG, "inserted into host field")
@@ -240,6 +256,16 @@ class OpenWisprAccessibilityService : AccessibilityService() {
             // The haptic tick is the confirmation. A toast on top of text visibly appearing in
             // the field is telling the user something they can already see.
             vibrateTick()
+        }
+    }
+
+    /** Legacy fallback for Android < 13 or editors with no accessibility InputConnection. */
+    private fun insertViaAccessibilityNode(text: String): Boolean {
+        val node = findHostFocusedEditable() ?: return false
+        return try {
+            insertAtCursor(node, text)
+        } finally {
+            @Suppress("DEPRECATION") node.recycle()
         }
     }
 
