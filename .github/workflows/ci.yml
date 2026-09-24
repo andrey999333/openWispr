@@ -1,4 +1,5 @@
 name: CI
+# Fork build trigger: hardened personal Android build.
 
 on:
   push:
