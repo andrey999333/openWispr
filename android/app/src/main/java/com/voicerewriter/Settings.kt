@@ -49,6 +49,8 @@ data class Settings(
     val sttEndpoint: String = "", // only used when sttProvider == "custom"
     val sttKey: String = "",
     val sttModel: String = "",
+    // Whisper language: auto | keyboard | ru | en | de | es
+    val sttLanguage: String = "auto",
     // --- Dictation / rewrite behavior ---
     val defaultMode: String = Defaults.MODE_DICTATE, // "dictate" | "rewrite"
     val deterministicCleanup: Boolean = true, // fast rule-based cleanup (fillers, spoken forms, numbers, self-corrections)
@@ -103,6 +105,7 @@ class SettingsRepository(private val context: Context) {
         val STT_ENDPOINT = stringPreferencesKey("sttEndpoint")
         val STT_KEY = stringPreferencesKey("sttKey")
         val STT_MODEL = stringPreferencesKey("sttModel")
+        val STT_LANGUAGE = stringPreferencesKey("sttLanguage")
         val DEFAULT_MODE = stringPreferencesKey("defaultMode")
         val DETERMINISTIC_CLEANUP = booleanPreferencesKey("deterministicCleanup")
         val POLISH_LEVEL = stringPreferencesKey("polishLevel")
@@ -126,6 +129,7 @@ class SettingsRepository(private val context: Context) {
             sttEndpoint = p[Keys.STT_ENDPOINT] ?: defaults.sttEndpoint,
             sttKey = p[Keys.STT_KEY] ?: defaults.sttKey,
             sttModel = p[Keys.STT_MODEL] ?: defaults.sttModel,
+            sttLanguage = p[Keys.STT_LANGUAGE] ?: defaults.sttLanguage,
             defaultMode = p[Keys.DEFAULT_MODE] ?: defaults.defaultMode,
             deterministicCleanup = p[Keys.DETERMINISTIC_CLEANUP] ?: defaults.deterministicCleanup,
             polishLevel = PolishLevel.from(p[Keys.POLISH_LEVEL]),
@@ -151,6 +155,7 @@ class SettingsRepository(private val context: Context) {
             p[Keys.STT_ENDPOINT] = s.sttEndpoint
             p[Keys.STT_KEY] = s.sttKey
             p[Keys.STT_MODEL] = s.sttModel
+            p[Keys.STT_LANGUAGE] = s.sttLanguage
             p[Keys.DEFAULT_MODE] = s.defaultMode
             p[Keys.DETERMINISTIC_CLEANUP] = s.deterministicCleanup
             p[Keys.POLISH_LEVEL] = s.polishLevel.key
