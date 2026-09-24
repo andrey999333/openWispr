@@ -4,7 +4,11 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["personal-v*"]
   pull_request:
+
+permissions:
+  contents: write
 
 jobs:
   android:
@@ -53,6 +57,20 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Prepare APK for GitHub Release
+        if: startsWith(github.ref, 'refs/tags/personal-v')
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk OpenWispr-${{ github.ref_name }}.apk
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/personal-v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            "OpenWispr-${{ github.ref_name }}.apk" \
+            --title "OpenWispr ${{ github.ref_name }}" \
+            --notes "Personal hardened Android build. Built from commit ${{ github.sha }}. Debug-signed for sideloading."
 
   # macOS was not built here until #52 sat for eleven days with a one-line compile error and a
   # green PR, because the only job in this file was the Android one. Half the codebase had no
