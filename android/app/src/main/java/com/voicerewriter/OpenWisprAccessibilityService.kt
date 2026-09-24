@@ -1,8 +1,6 @@
 package com.voicerewriter
 
 import android.accessibilityservice.AccessibilityService
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
@@ -191,12 +189,12 @@ class OpenWisprAccessibilityService : AccessibilityService() {
         main.removeCallbacksAndMessages(null)
         // Backstop retries in case the focus event doesn't arrive.
         for (delay in retryDelays) main.postDelayed({ attemptInsert() }, delay)
-        // Give up after the last retry: no field ever focused — fall back to a clipboard copy.
+        // Give up after the last retry without touching the clipboard. The dictation remains
+        // available in History, where Copy is an explicit user action.
         main.postDelayed({
-            val t = pendingText
-            if (t != null) {
+            if (pendingText != null) {
+                Log.w(TAG, "auto-insert gave up; text retained in History")
                 pendingText = null
-                setClipboard(t)
             }
         }, retryDelays.last() + 300)
     }
@@ -206,9 +204,9 @@ class OpenWisprAccessibilityService : AccessibilityService() {
         val text = pendingText ?: return
         val node = findHostFocusedEditable() ?: return
         val ok = try {
-            // Prefer a clipboard-free splice at the cursor; fall back to paste only when
-            // we can't determine the cursor (e.g. some WebView fields).
-            insertAtCursor(node, text) || pasteViaClipboard(node, text)
+            // Auto-insert is deliberately clipboard-free. If ACTION_SET_TEXT is unsupported,
+            // leave the dictation in History instead of polluting the system clipboard.
+            insertAtCursor(node, text)
         } catch (e: Exception) {
             Log.e(TAG, "insert action failed", e); false
         } finally {
@@ -254,13 +252,6 @@ class OpenWisprAccessibilityService : AccessibilityService() {
         return true
     }
 
-    /** Fallback insert: stage on the clipboard and paste. Honors cursor position, but the
-     *  text is necessarily left on the clipboard (only used when [insertAtCursor] can't). */
-    private fun pasteViaClipboard(node: AccessibilityNodeInfo, text: String): Boolean {
-        setClipboard(text)
-        return node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
-    }
-
     /** Focused editable node in the active window, only if it's NOT our own app. */
     private fun findHostFocusedEditable(): AccessibilityNodeInfo? {
         val root = rootInActiveWindow ?: return null
@@ -269,11 +260,6 @@ class OpenWisprAccessibilityService : AccessibilityService() {
         if (focused != null && focused.isEditable) return focused
         @Suppress("DEPRECATION") focused?.recycle()
         return null
-    }
-
-    private fun setClipboard(text: String) {
-        val cb = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        cb.setPrimaryClip(ClipData.newPlainText("rewrite", text))
     }
 
     /** Light confirmation buzz when text lands in the field. */
