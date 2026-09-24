@@ -252,10 +252,30 @@ class OpenWisprAccessibilityService : AccessibilityService() {
         return true
     }
 
-    /** Focused editable node in the active window, only if it's NOT our own app. */
+    /**
+     * Find the focused editable in any interactive host window. Immediately after our
+     * dictation sheet closes, rootInActiveWindow can still point at OpenWispr for a short
+     * time even though the target editor (Telegram, browser, etc.) already has input focus.
+     * Scanning all windows mirrors the focus-gating logic above and avoids false failures.
+     */
     private fun findHostFocusedEditable(): AccessibilityNodeInfo? {
+        val wins = try { windows } catch (_: Exception) { null }
+        if (!wins.isNullOrEmpty()) {
+            for (w in wins) {
+                val root = w.root ?: continue
+                val pkg = root.packageName?.toString() ?: continue
+                if (!isHostPackage(pkg, packageName)) continue
+                val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+                if (focused != null) {
+                    if (focused.isEditable) return focused
+                    @Suppress("DEPRECATION") focused.recycle()
+                }
+            }
+        }
+
         val root = rootInActiveWindow ?: return null
-        if (root.packageName == packageName) return null // our sheet is still up
+        val pkg = root.packageName?.toString() ?: return null
+        if (!isHostPackage(pkg, packageName)) return null
         val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
         if (focused != null && focused.isEditable) return focused
         @Suppress("DEPRECATION") focused?.recycle()
