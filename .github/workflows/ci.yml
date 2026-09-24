@@ -22,9 +22,9 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
+      # GitHub's Ubuntu runner already ships the Android SDK + sdkmanager.
+      # setup-android@v3 currently tries to install the removed legacy "tools" package,
+      # so use the preinstalled SDK directly and install only the versions we need.
       - name: Install NDK + CMake (whisper.cpp + llama.cpp native modules)
         run: sdkmanager "ndk;25.1.8937393" "ndk;29.0.13113456" "cmake;3.22.1" "cmake;3.31.6"
 
