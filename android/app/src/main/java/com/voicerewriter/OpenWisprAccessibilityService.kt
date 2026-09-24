@@ -81,6 +81,12 @@ class OpenWisprAccessibilityService : AccessibilityService() {
 
     private val main = Handler(Looper.getMainLooper())
     @Volatile private var pendingText: String? = null
+
+    // Keep the editor that had focus before RewriteActivity covers the host app. On some
+    // Samsung/Telegram combinations the host window stops reporting FOCUS_INPUT while our
+    // sheet is on top, then does not become discoverable quickly enough after finish().
+    // The AccessibilityNodeInfo itself can still perform ACTION_SET_TEXT once refreshed.
+    private var lastFocusedEditor: AccessibilityNodeInfo? = null
     private val retryDelays = longArrayOf(250, 500, 900, 1400, 2000)
 
     override fun onServiceConnected() {
@@ -145,6 +151,19 @@ class OpenWisprAccessibilityService : AccessibilityService() {
             val pkg = event.packageName?.toString()
             if (pkg != null && isHostPackage(pkg, packageName)) lastHostPackage = pkg
         }
+        // Cache the actual editor before our recording activity takes focus. This is more
+        // reliable than trying to rediscover it during the brief activity transition.
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED) {
+            val pkg = event.packageName?.toString()
+            val src = event.source
+            if (pkg != null && isHostPackage(pkg, packageName) && src != null && src.isEditable) {
+                @Suppress("DEPRECATION") lastFocusedEditor?.recycle()
+                lastFocusedEditor = src
+            } else {
+                @Suppress("DEPRECATION") src?.recycle()
+            }
+        }
+
         // Drive the field-gated bubble: re-check focus on any event that can change it
         // (coalesced — content-changed can fire in bursts).
         when (event.eventType) {
@@ -173,6 +192,8 @@ class OpenWisprAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         main.removeCallbacks(fieldCheck)
+        @Suppress("DEPRECATION") lastFocusedEditor?.recycle()
+        lastFocusedEditor = null
         if (instance === this) instance = null
         // Service gone — focus detection is impossible, so let the bubble show always.
         BubbleService.instance?.refreshGating()
@@ -259,6 +280,16 @@ class OpenWisprAccessibilityService : AccessibilityService() {
      * Scanning all windows mirrors the focus-gating logic above and avoids false failures.
      */
     private fun findHostFocusedEditable(): AccessibilityNodeInfo? {
+        // First try the editor captured before our sheet opened. refresh() rejects stale nodes,
+        // so this cannot accidentally write to a field that no longer exists.
+        lastFocusedEditor?.let { cached ->
+            val pkg = cached.packageName?.toString()
+            val fresh = try { cached.refresh() } catch (_: Exception) { false }
+            if (fresh && pkg != null && isHostPackage(pkg, packageName) && cached.isEditable) {
+                return AccessibilityNodeInfo.obtain(cached)
+            }
+        }
+
         val wins = try { windows } catch (_: Exception) { null }
         if (!wins.isNullOrEmpty()) {
             for (w in wins) {
