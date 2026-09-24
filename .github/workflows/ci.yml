@@ -57,7 +57,7 @@ jobs:
         if: github.event_name != 'pull_request'
         working-directory: android
         env:
-          OPENWISPR_KEYSTORE_FILE: openwispr-release.jks
+          OPENWISPR_KEYSTORE_FILE: ../openwispr-release.jks
           OPENWISPR_KEYSTORE_PASSWORD: ${{ secrets.OPENWISPR_KEYSTORE_PASSWORD }}
           OPENWISPR_KEY_ALIAS: ${{ secrets.OPENWISPR_KEY_ALIAS }}
           OPENWISPR_KEY_PASSWORD: ${{ secrets.OPENWISPR_KEY_PASSWORD }}
